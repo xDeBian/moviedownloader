@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KadriTV — Download Manager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Sans+Georgian:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a25;
+    --border: #2a2a3a;
+    --accent: #e8b04b;
+    --accent2: #c97b2e;
+    --text: #e8e8f0;
+    --text-muted: #7070a0;
+    --success: #4be88a;
+    --error: #e84b4b;
+    --blue: #4b8be8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans Georgian', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(232,176,75,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,176,75,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+  }
+
+  .logo h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .logo h1 span {
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 300;
+  }
+
+  /* URL Input Section */
+  .input-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .input-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .url-row {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .url-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+    color: var(--text);
+    font-family: 'Noto Sans Georgian', monospace;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input:focus { border-color: var(--accent); }
+  .url-input::placeholder { color: var(--text-muted); }
+
+  .btn {
+    padding: 0.875rem 1.5rem;
+    border-radius: 10px;
+    border: none;
+    font-family: 'Noto Sans Georgian', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0a0a0f;
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(232,176,75,0.3); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-success {
+    background: linear-gradient(135deg, var(--success), #2ec96a);
+    color: #0a0a0f;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-sm { padding: 0.5rem 1rem; font-size: 0.8rem; }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(10,10,15,0.3);
+    border-top-color: #0a0a0f;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Result Card */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+
+  .result-card.visible { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .movie-header {
+    display: flex;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .movie-poster {
+    width: 90px;
+    height: 130px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+
+  .movie-poster-placeholder {
+    width: 90px;
+    height: 130px;
+    background: var(--surface2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+
+  .movie-info { flex: 1; min-width: 0; }
+
+  .movie-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .badge-series { background: rgba(75,139,232,0.2); color: var(--blue); border: 1px solid rgba(75,139,232,0.3); }
+  .badge-movie { background: rgba(232,176,75,0.2); color: var(--accent); border: 1px solid rgba(232,176,75,0.3); }
+  .badge-found { background: rgba(75,232,138,0.2); color: var(--success); border: 1px solid rgba(75,232,138,0.3); }
+
+  .movie-duration {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Format selector */
+  .format-section {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.875rem;
+  }
+
+  .format-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .format-btn {
+    padding: 0.4rem 0.875rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Noto Sans Georgian', sans-serif;
+  }
+
+  .format-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .format-btn.active { background: rgba(232,176,75,0.15); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  .download-actions {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* Episodes section */
+  .episodes-section {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .episodes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 0.75rem;
+  }
+
+  .episodes-list::-webkit-scrollbar { width: 4px; }
+  .episodes-list::-webkit-scrollbar-track { background: var(--surface2); }
+  .episodes-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .episode-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0.875rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    gap: 0.75rem;
+    transition: border-color 0.2s;
+  }
+
+  .episode-item:hover { border-color: var(--accent); }
+  .episode-title { font-size: 0.85rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Download Queue */
+  .queue-section {
+    display: none;
+  }
+
+  .queue-section.visible {
+    display: block;
+  }
+
+  .queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .queue-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .queue-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+  }
+
+  .queue-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .queue-item-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 1rem;
+  }
+
+  .queue-item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+  .progress-bar-wrap {
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .progress-bar.done { background: linear-gradient(90deg, var(--success), #2ec96a); }
+  .progress-bar.error { background: var(--error); }
+
+  .queue-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 0.3rem;
+    vertical-align: middle;
+  }
+
+  .status-dot.downloading { background: var(--accent); animation: pulse 1s infinite; }
+  .status-dot.done { background: var(--success); }
+  .status-dot.error { background: var(--error); }
+  .status-dot.paused { background: var(--text-muted); }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* Files section */
+  .files-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+
+  .file-icon { color: var(--accent); font-size: 1.1rem; flex-shrink: 0; }
+  .file-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0; }
+
+  /* Error/info messages */
+  .message {
+    padding: 0.875rem 1.1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    display: none;
+    margin-top: 0.75rem;
+  }
+
+  .message.visible { display: flex; align-items: center; gap: 0.5rem; }
+  .message.error { background: rgba(232,75,75,0.1); border: 1px solid rgba(232,75,75,0.3); color: #ff8080; }
+  .message.info { background: rgba(75,139,232,0.1); border: 1px solid rgba(75,139,232,0.3); color: #80aaff; }
+  .message.warning { background: rgba(232,176,75,0.1); border: 1px solid rgba(232,176,75,0.3); color: var(--accent); }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    .url-row { flex-direction: column; }
+    .movie-header { flex-direction: column; }
+    .movie-poster, .movie-poster-placeholder { width: 100%; height: 180px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎬</div>
+      <h1>Kadri<span>TV</span></h1>
+    </div>
+    <p class="subtitle">Download Manager — ფილმები და სერიალები</p>
+  </header>
+
+  <!-- URL Input -->
+  <div class="input-section">
+    <label class="input-label">ფილმის ან სერიალის გვერდის ლინკი</label>
+    <div class="url-row">
+      <input
+        type="url"
+        id="urlInput"
+        class="url-input"
+        placeholder="https://mykadri.tv/..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeURL()">
+        🔍 ანალიზი
+      </button>
+    </div>
+    <div id="analyzeError" class="message error"></div>
+    <div id="analyzeInfo" class="message info"></div>
+  </div>
+
+  <!-- Result Card -->
+  <div id="resultCard" class="result-card">
+
+    <!-- Movie Header -->
+    <div class="movie-header">
+      <div id="posterWrap">
+        <div class="movie-poster-placeholder">🎬</div>
+      </div>
+      <div class="movie-info">
+        <div id="movieBadge" class="badge badge-movie" style="margin-bottom:0.5rem">ფილმი</div>
+        <div id="movieTitle" class="movie-title">—</div>
+        <div id="movieDuration" class="movie-duration"></div>
+        <div id="sourceBadge" style="margin-top:0.75rem"></div>
+      </div>
+    </div>
+
+    <!-- Episodes (series only) -->
+    <div id="episodesSection" class="episodes-section" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem">
+        <div class="section-title" style="margin-bottom:0">📋 ეპიზოდები</div>
+        <button class="btn btn-success btn-sm" id="downloadSeasonBtn" onclick="downloadCurrentSeason()">⬇️ მთლიანი სეზონი</button>
+      </div>
+      <div id="seasonTabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+      <div id="seriesQualityWrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+      <div id="episodesList" class="episodes-list"></div>
+    </div>
+
+    <!-- Format selector -->
+    <div class="format-section">
+      <div class="section-title">🎯 ხარისხი</div>
+      <div class="format-grid" id="formatGrid">
+        <button class="format-btn active" data-format="bestvideo+bestaudio/best" onclick="selectFormat(this)">🏆 საუკეთესო</button>
+        <button class="format-btn" data-format="bestvideo[height<=1080]+bestaudio/best[height<=1080]" onclick="selectFormat(this)">🖥️ 1080p</button>
+        <button class="format-btn" data-format="bestvideo[height<=720]+bestaudio/best[height<=720]" onclick="selectFormat(this)">📺 720p</button>
+        <button class="format-btn" data-format="bestvideo[height<=480]+bestaudio/best[height<=480]" onclick="selectFormat(this)">📱 480p</button>
+        <button class="format-btn" data-format="worstvideo+worstaudio/worst" onclick="selectFormat(this)">⚡ მინიმალური</button>
+      </div>
+    </div>
+
+    <!-- Download button -->
+    <div class="download-actions">
+      <button class="btn btn-success" id="downloadBtn" onclick="startDownload()">
+        ⬇️ გადმოწერა
+      </button>
+      <span id="downloadNote" style="font-size:0.8rem;color:var(--text-muted)"></span>
+    </div>
+
+  </div>
+
+  <!-- Download Queue -->
+  <div id="queueSection" class="queue-section">
+    <div class="queue-header">
+      <div class="queue-title">📥 მიმდინარე გადმოწერები</div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline btn-sm" onclick="clearAllJobs()">🗑️ ყველა</button>
+        <button class="btn btn-outline btn-sm" onclick="loadFiles()">📁 ფაილები</button>
+      </div>
+    </div>
+    <div id="queueList" class="queue-list"></div>
+  </div>
+
+  <!-- Downloaded Files -->
+  <div id="filesSection" class="files-section" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="section-title" style="margin-bottom:0">📂 გადმოწერილი ფაილები</div>
+      <span id="filesDir" style="font-size:0.72rem;color:var(--text-muted)"></span>
+    </div>
+    <div id="filesList" class="files-list"></div>
+  </div>
+
+</div>
+
+<script>
+  let currentData = null;
+  let selectedFormat = 'bestvideo+bestaudio/best';
+  let activeJobs = {};
+  let downloadQueue = [];       // pending items waiting to start
+  let queueRunning = false;     // true while a queued download is active
+  let queueJobId = null;        // job_id of the currently active queued download
+
+  function setAnalyzing(on) {
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spinner"></span>მიმდინარეობს...' : '🔍 ანალიზი';
+  }
+
+  function showMsg(id, text, type='info') {
+    const el = document.getElementById(id);
+    el.className = `message ${type} visible`;
+    el.innerHTML = (type === 'error' ? '⚠️ ' : 'ℹ️ ') + text;
+  }
+
+  function hideMsg(id) {
+    document.getElementById(id).className = 'message';
+  }
+
+  async function analyzeURL() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) { showMsg('analyzeError', 'URL ჩაწერეთ', 'error'); return; }
+    if (!url.includes('mykadri.tv') && !url.startsWith('http')) {
+      showMsg('analyzeError', 'სწორი URL შეიყვანეთ', 'error'); return;
+    }
+
+    hideMsg('analyzeError');
+    hideMsg('analyzeInfo');
+    setAnalyzing(true);
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        showMsg('analyzeError', data.error || 'ვერ მოხდა ანალიზი', 'error');
+        setAnalyzing(false); return;
+      }
+
+      currentData = data;
+      renderResult(data);
+
+    } catch(e) {
+      showMsg('analyzeError', 'სერვერთან კავშირი ვერ მოხდა: ' + e.message, 'error');
+    }
+    setAnalyzing(false);
+  }
+
+  let selectedDirectUrl = '';  // პირდაპირი m3u8 URL (სკრეიპინგიდან)
+
+  function renderResult(data) {
+    selectedDirectUrl = '';
+
+    // Poster
+    const posterWrap = document.getElementById('posterWrap');
+    if (data.poster) {
+      posterWrap.innerHTML = `<img src="${data.poster}" class="movie-poster" onerror="this.parentElement.innerHTML='<div class=\\'movie-poster-placeholder\\'>🎬</div>'" />`;
+    }
+
+    // Title
+    document.getElementById('movieTitle').textContent = data.title || 'უცნობი';
+
+    // Type badge
+    const badge = document.getElementById('movieBadge');
+    if (data.is_series) {
+      badge.textContent = '📺 სერიალი';
+      badge.className = 'badge badge-series';
+    } else {
+      badge.textContent = '🎬 ფილმი';
+      badge.className = 'badge badge-movie';
+    }
+
+    // Duration
+    if (data.duration) {
+      const mins = Math.floor(data.duration / 60);
+      document.getElementById('movieDuration').textContent = `⏱️ ${mins} წუთი`;
+    }
+
+    // Sources badge
+    const labeled = data.sources_labeled || [];
+    const sourceBadge = document.getElementById('sourceBadge');
+    if (labeled.length > 0) {
+      sourceBadge.innerHTML = `<span class="badge badge-found">✓ ${labeled.length} სტრიმი ნაპოვნია</span>`;
+    } else if ((data.formats || []).length > 0) {
+      sourceBadge.innerHTML = `<span class="badge badge-found">✓ yt-dlp ვიდეო ნაპოვნა</span>`;
+    } else {
+      sourceBadge.innerHTML = `<span class="badge" style="background:rgba(232,75,75,0.2);color:#ff8080;border:1px solid rgba(232,75,75,0.3)">⚠️ პირდაპირი ლინკი ვერ ვიპოვე</span>`;
+    }
+
+    // Format grid — labeled sources (m3u8/mp4 პირდაპირი) + yt-dlp formats
+    const grid = document.getElementById('formatGrid');
+    grid.innerHTML = '';
+
+    if (labeled.length > 0) {
+      labeled.forEach((s, i) => {
+        const lbl = s.label || `სტრიმი ${i+1}`;
+        const btn = document.createElement('button');
+        btn.className = 'format-btn' + (i === 0 ? ' active' : '');
+        btn.dataset.format = 'bestvideo+bestaudio/best';
+        btn.dataset.directUrl = s.url;
+        btn.textContent = `🎞️ ${lbl}`;
+        btn.onclick = function() { selectFormat(this); };
+        grid.appendChild(btn);
+      });
+      selectedDirectUrl = labeled[0].url;
+      selectedFormat = 'bestvideo+bestaudio/best';
+    }
+
+    // yt-dlp formats (დამატებითი)
+    const seenUrls = new Set(labeled.map(s => s.url));
+    (data.formats || []).forEach(f => {
+      const res = f.resolution || f.note;
+      if (res && !seenUrls.has(f.url)) {
+        seenUrls.add(f.url);
+        const btn = document.createElement('button');
+        btn.className = 'format-btn' + (grid.children.length === 0 ? ' active' : '');
+        btn.dataset.format = f.format_id;
+        btn.dataset.directUrl = '';
+        btn.textContent = `📺 ${res}`;
+        btn.onclick = function() { selectFormat(this); };
+        grid.appendChild(btn);
+      }
+    });
+
+    // fallback ღილაკები თუ სხვა ვერ ვიპოვეთ
+    if (grid.children.length === 0) {
+      grid.innerHTML = `
+        <button class="format-btn active" data-format="bestvideo+bestaudio/best" data-direct-url="" onclick="selectFormat(this)">🏆 საუკეთესო</button>
+        <button class="format-btn" data-format="bestvideo[height<=1080]+bestaudio/best[height<=1080]" data-direct-url="" onclick="selectFormat(this)">🖥️ 1080p</button>
+        <button class="format-btn" data-format="bestvideo[height<=720]+bestaudio/best[height<=720]" data-direct-url="" onclick="selectFormat(this)">📺 720p</button>
+      `;
+    }
+
+    // Episodes (series) — season/episode tree
+    const seasons = data.seasons || {};
+    const seasonKeys = Object.keys(seasons).sort((a,b) => parseInt(a)-parseInt(b));
+    if (seasonKeys.length > 0) {
+      document.getElementById('episodesSection').style.display = 'block';
+      window._seriesSeasons = seasons;
+      window._seriesTitle = data.title || 'video';
+      window._seriesQuality = 0;
+
+      // Fetch quality options from first episode of first season
+      const firstEpSrc = seasons[seasonKeys[0]][0]?.sources[0]?.url;
+      if (firstEpSrc) {
+        fetch('/api/hls_qualities', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({url: firstEpSrc, referer: data.url})
+        }).then(r => r.json()).then(qdata => {
+          renderSeriesQuality(qdata.qualities || []);
+        }).catch(() => renderSeriesQuality([]));
+      }
+
+      // Season tabs
+      const tabs = document.getElementById('seasonTabs');
+      tabs.innerHTML = seasonKeys.map(s => `
+        <button class="format-btn season-tab" data-season="${s}" onclick="showSeason('${s}',this)">
+          სეზონი ${s}
+        </button>`).join('');
+
+      // Show first season by default
+      showSeason(seasonKeys[0], tabs.querySelector('.season-tab'));
+    } else {
+      document.getElementById('episodesSection').style.display = 'none';
+    }
+
+    document.getElementById('resultCard').className = 'result-card visible';
+  }
+
+  function selectFormat(btn) {
+    document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedFormat = btn.dataset.format;
+    selectedDirectUrl = btn.dataset.directUrl || '';
+  }
+
+  async function analyzeEpisode(epUrl) {
+    document.getElementById('urlInput').value = epUrl;
+    await analyzeURL();
+  }
+
+  async function startDownload(overrideUrl, overrideTitle, overrideEpisodeId, overrideQualityHeight, subdir) {
+    // პირდაპირი m3u8 URL თუ გვაქვს — ის გამოვიყენოთ, გვერდის URL-ის ნაცვლად
+    const url = overrideUrl || selectedDirectUrl || currentData?.url || document.getElementById('urlInput').value.trim();
+    const title = overrideTitle || currentData?.title || 'video';
+    const episode_id = overrideEpisodeId !== undefined ? overrideEpisodeId : (currentData?.episode_id || '');
+    const quality_height = overrideQualityHeight !== undefined ? overrideQualityHeight : 0;
+    const sub = subdir || '';
+
+    if (!url) { alert('URL არ არის'); return; }
+
+    const btn = document.getElementById('downloadBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>იწყება...'; }
+
+    try {
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url, title, format_id: selectedFormat, episode_id, quality_height, subdir: sub})
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        addJobToQueue(data.job_id, title + (episode_id ? ` ${episode_id}` : ''), url, episode_id,
+          undefined, undefined, sub, quality_height);
+      } else {
+        alert('შეცდომა: ' + data.error);
+      }
+    } catch(e) {
+      alert('სერვერთან კავშირი ვერ მოხდა');
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '⬇️ გადმოწერა'; }
+  }
+
+  function downloadEpisode(ep) {
+    startDownload(ep.url, ep.title);
+  }
+
+  function showSeason(seasonNum, btnEl) {
+    document.querySelectorAll('.season-tab').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    window._currentSeason = seasonNum;
+    window._currentEps = window._seriesSeasons?.[seasonNum] || [];
+    const safeTitle = (window._seriesTitle || 'video').replace(/[\/\\:*?"<>|]/g, '').trim() || 'series';
+    window._currentSubdir = `${safeTitle}/Season${String(seasonNum).padStart(2,'0')}`;
+
+    const list = document.getElementById('episodesList');
+    list.innerHTML = window._currentEps.map((ep, i) => {
+      const sNum = String(seasonNum).padStart(2,'0');
+      const eNum = String(ep.ep_num || i+1).padStart(2,'0');
+      const epId = `S${sNum}E${eNum}`;
+      return `
+        <div class="episode-item">
+          <span class="episode-title">${ep.title || 'სერია '+(i+1)}</span>
+          <button class="btn btn-success btn-sm" onclick="downloadEp(${i},'${epId}')">
+            ⬇️ გადმოიწერე
+          </button>
+        </div>`;
+    }).join('');
+  }
+
+  function downloadEp(idx, epId) {
+    const ep = window._currentEps?.[idx];
+    if (!ep) return;
+    const masterUrl = ep.sources?.[0]?.url || '';
+    if (!masterUrl) { alert('URL ვერ მოიძებნა'); return; }
+    startDownload(masterUrl, window._seriesTitle, epId, window._seriesQuality, window._currentSubdir);
+  }
+
+  async function downloadCurrentSeason() {
+    const seasonNum = window._currentSeason;
+    if (!seasonNum) return;
+    const eps = window._currentEps || [];
+    if (eps.length === 0) return;
+
+    const subdir = window._currentSubdir || '';
+
+    for (let i = 0; i < eps.length; i++) {
+      const ep = eps[i];
+      const masterUrl = ep.sources?.[0]?.url || '';
+      if (!masterUrl) continue;
+      const sNum = String(seasonNum).padStart(2,'0');
+      const eNum = String(ep.ep_num || i+1).padStart(2,'0');
+      const epId = `S${sNum}E${eNum}`;
+      enqueueDownload(masterUrl, window._seriesTitle, epId, window._seriesQuality, subdir);
+    }
+  }
+
+  function renderSeriesQuality(qualities) {
+    const wrap = document.getElementById('seriesQualityWrap');
+    if (!wrap) return;
+    let html = `<button class="format-btn sq-btn active" data-h="0" onclick="setSeriesQuality(0,this)">საუკეთესო</button>`;
+    qualities.forEach(q => {
+      html += `<button class="format-btn sq-btn" data-h="${q.height}" onclick="setSeriesQuality(${q.height},this)">${q.label}</button>`;
+    });
+    wrap.innerHTML = html;
+  }
+
+  function setSeriesQuality(height, btn) {
+    window._seriesQuality = height;
+    document.querySelectorAll('.sq-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+
+  function addJobToQueue(jobId, title, url, episodeId, initialStatus, initialProgress, subdir, qualityHeight) {
+    const section = document.getElementById('queueSection');
+    section.className = 'queue-section visible';
+
+    // Don't add duplicates
+    if (document.getElementById(`job-${jobId}`)) return;
+
+    const list = document.getElementById('queueList');
+    const item = document.createElement('div');
+    item.className = 'queue-item';
+    item.id = `job-${jobId}`;
+    item.innerHTML = `
+      <div class="queue-item-header">
+        <div class="queue-item-name" title="${title}">${title}</div>
+        <div class="queue-item-actions">
+          <button class="btn btn-outline btn-sm" id="pauseBtn-${jobId}" onclick="togglePause('${jobId}', '${encodeURIComponent(url)}', '${encodeURIComponent(title)}', '${encodeURIComponent(episodeId||'')}')">⏸️ პაუზა</button>
+          <button class="btn btn-outline btn-sm" onclick="deleteJob('${jobId}')" title="სესიის წაშლა">🗑️</button>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="pb-${jobId}"></div>
+      </div>
+      <div class="queue-meta">
+        <span id="status-${jobId}"><span class="status-dot downloading"></span>იწყება...</span>
+        <span id="speed-${jobId}"></span>
+        <span id="eta-${jobId}"></span>
+      </div>
+    `;
+    list.appendChild(item);
+    activeJobs[jobId] = {
+      paused: false, url, title,
+      episodeId: episodeId || '',
+      subdir: subdir || '',
+      qualityHeight: qualityHeight || 0
+    };
+
+    const pb = document.getElementById(`pb-${jobId}`);
+    const statusEl = document.getElementById(`status-${jobId}`);
+    const pauseBtn = document.getElementById(`pauseBtn-${jobId}`);
+
+    if (initialStatus === 'done') {
+      pb.className = 'progress-bar done'; pb.style.width = '100%';
+      statusEl.innerHTML = '<span class="status-dot done"></span>დასრულდა ✓';
+      pauseBtn.style.display = 'none';
+      delete activeJobs[jobId];
+    } else if (initialStatus === 'error') {
+      pb.className = 'progress-bar error'; pb.style.width = (initialProgress || 0) + '%';
+      statusEl.innerHTML = '<span class="status-dot error"></span>შეცდომა';
+      pauseBtn.style.display = 'none';
+      delete activeJobs[jobId];
+    } else {
+      if (initialProgress) pb.style.width = initialProgress + '%';
+      pollJob(jobId);
+    }
+  }
+
+  async function deleteJob(jobId) {
+    await fetch(`/api/jobs/${jobId}`, {method: 'DELETE'});
+    document.getElementById(`job-${jobId}`)?.remove();
+    delete activeJobs[jobId];
+    if (document.getElementById('queueList').children.length === 0) {
+      document.getElementById('queueSection').className = 'queue-section';
+    }
+  }
+
+  async function clearAllJobs() {
+    if (!confirm('ყველა სესია წაიშლება. გააგრძელებ?')) return;
+    await fetch('/api/jobs', {method: 'DELETE'});
+    document.getElementById('queueList').innerHTML = '';
+    activeJobs = {};
+    downloadQueue = [];
+    queueRunning = false;
+    queueJobId = null;
+    updateQueueCounter();
+    document.getElementById('queueSection').className = 'queue-section';
+  }
+
+  function enqueueDownload(url, title, epId, qualityHeight, subdir) {
+    downloadQueue.push({url, title, epId, qualityHeight: qualityHeight || 0, subdir: subdir || ''});
+    updateQueueCounter();
+    if (!queueRunning) processNextInQueue();
+  }
+
+  async function processNextInQueue() {
+    if (downloadQueue.length === 0) {
+      queueRunning = false;
+      queueJobId = null;
+      updateQueueCounter();
+      return;
+    }
+    queueRunning = true;
+    const next = downloadQueue.shift();
+    updateQueueCounter();
+
+    try {
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          url: next.url, title: next.title,
+          format_id: selectedFormat,
+          episode_id: next.epId,
+          quality_height: next.qualityHeight,
+          subdir: next.subdir
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        queueJobId = data.job_id;
+        const label = next.title + (next.epId ? ` ${next.epId}` : '');
+        addJobToQueue(data.job_id, label, next.url, next.epId,
+          undefined, undefined, next.subdir, next.qualityHeight);
+      } else {
+        // skip failed item and continue
+        processNextInQueue();
+      }
+    } catch(e) {
+      processNextInQueue();
+    }
+  }
+
+  function updateQueueCounter() {
+    const btn = document.getElementById('downloadSeasonBtn');
+    if (!btn) return;
+    if (downloadQueue.length > 0) {
+      btn.innerHTML = `⏳ რიგი: ${downloadQueue.length}`;
+      btn.disabled = true;
+    } else {
+      btn.innerHTML = '⬇️ მთლიანი სეზონი';
+      btn.disabled = false;
+    }
+  }
+
+  async function togglePause(jobId, encodedUrl, encodedTitle, encodedEpisodeId) {
+    const job = activeJobs[jobId];
+    if (!job) return;
+    const btn = document.getElementById(`pauseBtn-${jobId}`);
+
+    if (!job.paused) {
+      // Pause
+      const pauseRes = await fetch(`/api/pause/${jobId}`, {method: 'POST'});
+      const pauseData = await pauseRes.json();
+      if (pauseData.success) {
+        job.paused = true;
+        job.pausedAtSeconds = pauseData.paused_at_seconds || 0;
+        btn.innerHTML = '▶️ გაგრძელება';
+      }
+    } else {
+      // Resume — continue from paused position
+      job.paused = false;
+      btn.innerHTML = '⏸️ პაუზა';
+      btn.disabled = true;
+
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          url: decodeURIComponent(encodedUrl),
+          title: decodeURIComponent(encodedTitle),
+          format_id: selectedFormat,
+          episode_id: decodeURIComponent(encodedEpisodeId || ''),
+          subdir: job.subdir || '',
+          quality_height: job.qualityHeight || 0,
+          resume_seconds: job.pausedAtSeconds || 0
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById(`job-${jobId}`)?.remove();
+        delete activeJobs[jobId];
+        addJobToQueue(data.job_id, decodeURIComponent(encodedTitle), decodeURIComponent(encodedUrl),
+          decodeURIComponent(encodedEpisodeId || ''), undefined, undefined,
+          job.subdir, job.qualityHeight);
+      }
+      btn.disabled = false;
+    }
+  }
+
+  async function pollJob(jobId) {
+    if (!activeJobs[jobId]) return;
+
+    try {
+      const res = await fetch(`/api/progress/${jobId}`);
+      const d = await res.json();
+
+      const pb = document.getElementById(`pb-${jobId}`);
+      const statusEl = document.getElementById(`status-${jobId}`);
+      const speedEl = document.getElementById(`speed-${jobId}`);
+      const etaEl = document.getElementById(`eta-${jobId}`);
+
+      if (!pb) return;
+
+      pb.style.width = d.progress + '%';
+
+      if (d.status === 'not_found') {
+        pb.className = 'progress-bar error';
+        statusEl.innerHTML = '<span class="status-dot error"></span>სერვერი გადაიტვირთა';
+        document.getElementById(`pauseBtn-${jobId}`)?.remove();
+        delete activeJobs[jobId];
+        return;
+      }
+
+      if (d.status === 'done') {
+        pb.className = 'progress-bar done';
+        statusEl.innerHTML = '<span class="status-dot done"></span>დასრულდა ✓';
+        speedEl.textContent = d.filename || '';
+        etaEl.textContent = '';
+        document.getElementById(`pauseBtn-${jobId}`).style.display = 'none';
+        delete activeJobs[jobId];
+        loadFiles();
+        if (jobId === queueJobId) { queueJobId = null; processNextInQueue(); }
+        return;
+      }
+
+      if (d.status === 'error') {
+        pb.className = 'progress-bar error';
+        const errMsg = d.error ? `: ${d.error}` : '';
+        statusEl.innerHTML = `<span class="status-dot error"></span>შეცდომა${errMsg}`;
+        delete activeJobs[jobId];
+        if (jobId === queueJobId) { queueJobId = null; processNextInQueue(); }
+        return;
+      }
+
+      if (d.status === 'paused') {
+        statusEl.innerHTML = '<span class="status-dot paused"></span>შეჩერებულია';
+        return;
+      }
+
+      statusEl.innerHTML = `<span class="status-dot downloading"></span>${Math.round(d.progress)}%`;
+      speedEl.textContent = d.speed ? `⚡ ${d.speed}` : '';
+      etaEl.textContent = d.eta ? `⏱️ ${d.eta}` : '';
+
+      if (d.status !== 'paused') {
+        setTimeout(() => pollJob(jobId), 1000);
+      }
+    } catch(e) {
+      setTimeout(() => pollJob(jobId), 2000);
+    }
+  }
+
+  async function loadFiles() {
+    try {
+      const res = await fetch('/api/downloads');
+      const data = await res.json();
+      const section = document.getElementById('filesSection');
+      const list = document.getElementById('filesList');
+      document.getElementById('filesDir').textContent = data.dir;
+
+      if (data.files.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem">ჯერ ფაილები არ არის</div>';
+      } else {
+        list.innerHTML = data.files.map(f => `
+          <div class="file-item">
+            <span class="file-icon">🎬</span>
+            <span class="file-name">${f.name}</span>
+            <span class="file-size">${formatSize(f.size)}</span>
+          </div>
+        `).join('');
+      }
+      section.style.display = 'block';
+    } catch(e) {}
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    if (bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
+    return (bytes/1024/1024/1024).toFixed(2) + ' GB';
+  }
+
+  // Enter key support
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') analyzeURL();
+  });
+
+  // Restore active downloads and history after page refresh
+  (async function restoreJobs() {
+    try {
+      const res = await fetch('/api/jobs');
+      const data = await res.json();
+      // Sort by created_at ascending
+      const sorted = Object.entries(data.jobs || {})
+        .sort((a, b) => (a[1].created_at || '').localeCompare(b[1].created_at || ''));
+      for (const [jobId, job] of sorted) {
+        addJobToQueue(jobId, job.title, job.url, job.episode_id || '',
+          job.status, job.progress, job.subdir || '', 0);
+      }
+    } catch(e) {}
+  })();
+
+  // Load files on startup
+  loadFiles();
+</script>
+</body>
+</html>
