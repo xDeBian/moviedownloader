@@ -29,11 +29,34 @@ HEADERS = {
     "Accept-Language": "ka-GE,ka;q=0.9,en;q=0.8",
 }
 
-DOWNLOAD_DIR = os.path.expanduser("~/Downloads/KadriMovies")
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
 JOBS_FILE = os.path.join(os.path.dirname(__file__), 'jobs.json')
+SETTINGS_FILE = os.path.join(os.path.dirname(__file__), 'settings.json')
 jobs_lock = Lock()
+
+
+def _default_download_dir():
+    """Linux: /home/user  |  macOS/other: ~/Downloads/KadriMovies"""
+    if os.name == 'posix' and os.path.isdir('/home'):
+        return os.path.expanduser('~')
+    return os.path.expanduser('~/Downloads/KadriMovies')
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_settings(data):
+    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+_s = load_settings()
+DOWNLOAD_DIR = _s.get('download_dir') or _default_download_dir()
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 
 def load_jobs_file():
@@ -226,7 +249,7 @@ def extract_jwplayer_sources(html_content, page_url):
 
 
 def scrape_page(url):
-    """Scrape the movie/series page and extract video info (mykadri.tv specific)"""
+    """Scrape the movie/series page and extract video info"""
     try:
         resp = scraper.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
@@ -425,7 +448,6 @@ def analyze():
     page_info = scrape_page(url)
 
     if not page_info['success']:
-        # სკრეიპინგი ვერ მოხდა — yt-dlp-ით სცადოს
         ytdlp_info = get_yt_dlp_info(url, referer='https://mykadri.tv/')
         return jsonify({
             'success': True,
@@ -484,6 +506,28 @@ def hls_qualities_api():
         return jsonify({'qualities': []})
     qualities = get_hls_qualities(url, referer=referer)
     return jsonify({'qualities': qualities})
+
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    return jsonify({'download_dir': DOWNLOAD_DIR})
+
+
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    global DOWNLOAD_DIR
+    data = request.get_json()
+    new_dir = data.get('download_dir', '').strip()
+    if not new_dir:
+        return jsonify({'success': False, 'error': 'გზა ცარიელია'})
+    new_dir = os.path.expanduser(new_dir)
+    if not os.path.isdir(new_dir):
+        return jsonify({'success': False, 'error': 'ფოლდერი არ არსებობს'})
+    DOWNLOAD_DIR = new_dir
+    settings = load_settings()
+    settings['download_dir'] = new_dir
+    save_settings(settings)
+    return jsonify({'success': True, 'download_dir': new_dir})
 
 
 @app.route('/api/jobs', methods=['GET'])
@@ -573,6 +617,7 @@ def start_download():
 
     def run_download():
         nonlocal resume_seconds
+        page_referer = 'https://mykadri.tv/'
         safe_title = re.sub(r'[^\w\s\-_ა-ჰ]', '', title).strip()[:60]
         safe_ep = re.sub(r'[^\w\-]', '', episode_id)
         filename_base = safe_ep if safe_ep else safe_title
@@ -590,7 +635,7 @@ def start_download():
             # Resolve specific quality variant for HLS master playlists
             actual_url = url
             if is_hls and quality_height > 0:
-                qualities = get_hls_qualities(url, referer='https://mykadri.tv/')
+                qualities = get_hls_qualities(url, referer=page_referer)
                 if qualities:
                     best = min(qualities, key=lambda q: abs(q['height'] - quality_height))
                     actual_url = best['url']
@@ -625,7 +670,7 @@ def start_download():
                 cmd = [
                     'ffmpeg', '-y',
                     '-user_agent', HEADERS['User-Agent'],
-                    '-headers', 'Referer: https://mykadri.tv/\r\n',
+                    '-headers', f'Referer: {page_referer}\r\n',
                 ]
                 if resume_seconds > 0:
                     cmd += ['-ss', str(int(resume_seconds))]
@@ -645,7 +690,7 @@ def start_download():
                     YT_DLP,
                     '-f', format_id,
                     '--user-agent', HEADERS['User-Agent'],
-                    '--referer', 'https://mykadri.tv/',
+                    '--referer', page_referer,
                     '--output', output_path,
                     '--newline', '--progress',
                     '--continue',

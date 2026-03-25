@@ -476,6 +476,7 @@
   .message.error { background: rgba(232,75,75,0.1); border: 1px solid rgba(232,75,75,0.3); color: #ff8080; }
   .message.info { background: rgba(75,139,232,0.1); border: 1px solid rgba(75,139,232,0.3); color: #80aaff; }
   .message.warning { background: rgba(232,176,75,0.1); border: 1px solid rgba(232,176,75,0.3); color: var(--accent); }
+  .message.success { background: rgba(75,232,138,0.1); border: 1px solid rgba(75,232,138,0.3); color: var(--success); }
 
   /* Divider */
   .divider {
@@ -527,6 +528,24 @@
     <div id="analyzeInfo" class="message info"></div>
   </div>
 
+  <!-- Download Directory Settings -->
+  <div class="input-section" style="margin-bottom:1.5rem">
+    <label class="input-label">📂 გადმოსაწერი ფოლდერი</label>
+    <div class="url-row">
+      <input
+        type="text"
+        id="downloadDirInput"
+        class="url-input"
+        readonly
+        style="font-family:monospace;font-size:0.82rem"
+        placeholder="/home/user"
+      />
+      <button class="btn btn-outline btn-sm" id="editDirBtn" onclick="editDir()" title="შეცვლა">✏️</button>
+      <button class="btn btn-success btn-sm" id="saveDirBtn" onclick="saveDir()" style="display:none">✓ შენახვა</button>
+      <button class="btn btn-outline btn-sm" id="cancelDirBtn" onclick="cancelDir()" style="display:none">✗</button>
+    </div>
+    <div id="dirMsg" class="message" style="margin-top:0.5rem"></div>
+  </div>
   <!-- Result Card -->
   <div id="resultCard" class="result-card">
 
@@ -771,8 +790,15 @@
 
       // Show first season by default
       showSeason(seasonKeys[0], tabs.querySelector('.season-tab'));
+
+      // Series: hide bottom format/download — quality is chosen in episode section above
+      document.querySelector('.format-section').style.display = 'none';
+      document.querySelector('.download-actions').style.display = 'none';
     } else {
       document.getElementById('episodesSection').style.display = 'none';
+      // Movie: show bottom format/download
+      document.querySelector('.format-section').style.display = '';
+      document.querySelector('.download-actions').style.display = '';
     }
 
     document.getElementById('resultCard').className = 'result-card visible';
@@ -791,7 +817,6 @@
   }
 
   async function startDownload(overrideUrl, overrideTitle, overrideEpisodeId, overrideQualityHeight, subdir) {
-    // პირდაპირი m3u8 URL თუ გვაქვს — ის გამოვიყენოთ, გვერდის URL-ის ნაცვლად
     const url = overrideUrl || selectedDirectUrl || currentData?.url || document.getElementById('urlInput').value.trim();
     const title = overrideTitle || currentData?.title || 'video';
     const episode_id = overrideEpisodeId !== undefined ? overrideEpisodeId : (currentData?.episode_id || '');
@@ -899,7 +924,6 @@
     const section = document.getElementById('queueSection');
     section.className = 'queue-section visible';
 
-    // Don't add duplicates
     if (document.getElementById(`job-${jobId}`)) return;
 
     const list = document.getElementById('queueList');
@@ -1008,7 +1032,6 @@
         addJobToQueue(data.job_id, label, next.url, next.epId,
           undefined, undefined, next.subdir, next.qualityHeight);
       } else {
-        // skip failed item and continue
         processNextInQueue();
       }
     } catch(e) {
@@ -1034,7 +1057,6 @@
     const btn = document.getElementById(`pauseBtn-${jobId}`);
 
     if (!job.paused) {
-      // Pause
       const pauseRes = await fetch(`/api/pause/${jobId}`, {method: 'POST'});
       const pauseData = await pauseRes.json();
       if (pauseData.success) {
@@ -1043,7 +1065,6 @@
         btn.innerHTML = '▶️ გაგრძელება';
       }
     } else {
-      // Resume — continue from paused position
       job.paused = false;
       btn.innerHTML = '⏸️ პაუზა';
       btn.disabled = true;
@@ -1135,8 +1156,74 @@
     }
   }
 
-  async function loadFiles() {
+  // ── Download directory settings ───────────────────────────────────────
+  let _origDir = '';
+
+  async function loadSettings() {
     try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      const val = data.download_dir || '';
+      document.getElementById('downloadDirInput').value = val;
+      _origDir = val;
+    } catch(e) {}
+  }
+
+  function editDir() {
+    _origDir = document.getElementById('downloadDirInput').value;
+    document.getElementById('downloadDirInput').removeAttribute('readonly');
+    document.getElementById('downloadDirInput').focus();
+    document.getElementById('editDirBtn').style.display = 'none';
+    document.getElementById('saveDirBtn').style.display = '';
+    document.getElementById('cancelDirBtn').style.display = '';
+    document.getElementById('dirMsg').className = 'message';
+  }
+
+  function cancelDir() {
+    document.getElementById('downloadDirInput').value = _origDir;
+    document.getElementById('downloadDirInput').setAttribute('readonly', true);
+    document.getElementById('editDirBtn').style.display = '';
+    document.getElementById('saveDirBtn').style.display = 'none';
+    document.getElementById('cancelDirBtn').style.display = 'none';
+    document.getElementById('dirMsg').className = 'message';
+  }
+
+  async function saveDir() {
+    const newDir = document.getElementById('downloadDirInput').value.trim();
+    if (!newDir) {
+      showDirMsg('გზა ცარიელია', 'error'); return;
+    }
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({download_dir: newDir})
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('downloadDirInput').value = data.download_dir;
+        _origDir = data.download_dir;
+        document.getElementById('downloadDirInput').setAttribute('readonly', true);
+        document.getElementById('editDirBtn').style.display = '';
+        document.getElementById('saveDirBtn').style.display = 'none';
+        document.getElementById('cancelDirBtn').style.display = 'none';
+        showDirMsg('✓ შენახულია', 'success');
+        setTimeout(() => { document.getElementById('dirMsg').className = 'message'; }, 2500);
+      } else {
+        showDirMsg(data.error, 'error');
+      }
+    } catch(e) {
+      showDirMsg('სერვერის შეცდომა', 'error');
+    }
+  }
+
+  function showDirMsg(text, type) {
+    const el = document.getElementById('dirMsg');
+    el.className = `message ${type} visible`;
+    el.innerHTML = (type === 'error' ? '⚠️ ' : '✓ ') + text;
+  }
+
+  async function loadFiles() {    try {
       const res = await fetch('/api/downloads');
       const data = await res.json();
       const section = document.getElementById('filesSection');
@@ -1169,6 +1256,10 @@
   document.getElementById('urlInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') analyzeURL();
   });
+  document.getElementById('downloadDirInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveDir();
+    if (e.key === 'Escape') cancelDir();
+  });
 
   // Restore active downloads and history after page refresh
   (async function restoreJobs() {
@@ -1186,6 +1277,7 @@
   })();
 
   // Load files on startup
+  loadSettings();
   loadFiles();
 </script>
 </body>
